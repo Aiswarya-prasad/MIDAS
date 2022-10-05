@@ -106,31 +106,53 @@ def parallel(function, argument_list, threads):
 		pool.join()
 		sys.exit("\nKeyboardInterrupt")
 
-# def add_executables(args):
-# 	""" Identify relative file and directory paths """
-# 	src_dir = os.path.dirname(os.path.abspath(__file__))
-# 	main_dir = os.path.dirname(src_dir)
-# 	args['stream_seqs'] = '/'.join([src_dir, 'run', 'stream_seqs.py'])
-# 	args['hs-blastn'] = '/'.join([main_dir, 'bin', platform.system(), 'hs-blastn'])
-# 	args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
-# 	args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
-# 	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
-#
-# 	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools']:
-# 		if not os.path.isfile(args[arg]):
-# 			sys.exit("\nError: File not found: %s\n" % args[arg])
-#
-# 	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
-# 		if not os.access(args[arg], os.X_OK):
-# 			sys.exit("\nError: File not executable: %s\n" % args[arg])
-from distutils.spawn import find_executable
-for exe in [...]:
-    if find_executable(exe) is None:
-        sys.exit("\nError: File not found: {}\n".format(exe))
+def add_executables(args):
+	""" Identify relative file and directory paths """
+	src_dir = os.path.dirname(os.path.abspath(__file__))
+	main_dir = os.path.dirname(src_dir)
+	args['stream_seqs'] = '/'.join([src_dir, 'run', 'stream_seqs.py'])
+	# args['hs-blastn'] = '/'.join([main_dir, 'bin', platform.system(), 'hs-blastn'])
+	# args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
+	# args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
+	# args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
+
+	"""
+	edits by Aiswarya (to get this to work on curnagl)
+	stop it from using its own binaries for the following tools
+	and instead use the one that is in the environment / conda env
+	that it is running in. This assumes that these tools have been setup
+	and are accessible from path and can hence be referred to by their names
+
+	replace the path by that of the executable which will be the appropriate
+	one within the active conda env or elsewhere in the local environment
+	"""
+
+	args['hs-blastn'] = 'hs-blastn'
+	args['bowtie2-build'] = 'bowtie2-build'
+	args['bowtie2'] = 'bowtie2'
+	args['samtools'] = 'samtools'
+
+	from distutils.spawn import find_executable
+
+	for exe in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
+		if find_executable(exe) is None:
+			sys.exit("\nError: File not found: {}\n".format(exe))
+
+	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
+		args[arg] = find_executable(arg)
+
+	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools']:
+		if not os.path.isfile(args[arg]):
+			sys.exit("\nError: File not found: %s\n" % args[arg])
+
+	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
+		if not os.access(args[arg], os.X_OK):
+			sys.exit("\nError: File not executable: %s\n" % args[arg])
 
 	import subprocess as sp
 
-	process = sp.Popen("%s view" % args['samtools'], shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
+	# added help tag here otherwise samtools complains
+	process = sp.Popen("%s view --help" % args['samtools'], shell=True, stdout=sp.PIPE, stderr=sp.PIPE)
 	process.wait()
 	if process.returncode != 0:
 		err = "\nError: could not execute samtools binary: %s\n" % args['samtools']
@@ -152,6 +174,9 @@ for exe in [...]:
 		err += "  3) Unpack the software on your system\n"
 		err += "  4) Copy the new bowtie2 binaries to: %s\n" % os.path.dirname(args['bowtie2'])
 		sys.exit(err)
+
+		"""
+		"""
 
 def auto_detect_file_type(inpath):
 	""" Detect file type [fasta or fastq] of <p_reads> """
