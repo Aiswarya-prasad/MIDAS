@@ -83,19 +83,19 @@ def parallel(function, argument_list, threads):
 	import multiprocessing as mp
 	import signal
 	import time
-	
+
 	def init_worker():
 		signal.signal(signal.SIGINT, signal.SIG_IGN)
-	
+
 	pool = mp.Pool(int(threads), init_worker)
-	
+
 	try:
 		results = []
 		for arguments in argument_list:
 			p = pool.apply_async(function, args=arguments)
 			results.append(p)
 		pool.close()
-		
+
 		while True:
 			if all(r.ready() for r in results):
 				return [r.get() for r in results]
@@ -106,23 +106,27 @@ def parallel(function, argument_list, threads):
 		pool.join()
 		sys.exit("\nKeyboardInterrupt")
 
-def add_executables(args):
-	""" Identify relative file and directory paths """
-	src_dir = os.path.dirname(os.path.abspath(__file__))
-	main_dir = os.path.dirname(src_dir)
-	args['stream_seqs'] = '/'.join([src_dir, 'run', 'stream_seqs.py'])
-	args['hs-blastn'] = '/'.join([main_dir, 'bin', platform.system(), 'hs-blastn'])
-	args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
-	args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
-	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
-	
-	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools']:
-		if not os.path.isfile(args[arg]):
-			sys.exit("\nError: File not found: %s\n" % args[arg])
-
-	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
-		if not os.access(args[arg], os.X_OK):
-			sys.exit("\nError: File not executable: %s\n" % args[arg])
+# def add_executables(args):
+# 	""" Identify relative file and directory paths """
+# 	src_dir = os.path.dirname(os.path.abspath(__file__))
+# 	main_dir = os.path.dirname(src_dir)
+# 	args['stream_seqs'] = '/'.join([src_dir, 'run', 'stream_seqs.py'])
+# 	args['hs-blastn'] = '/'.join([main_dir, 'bin', platform.system(), 'hs-blastn'])
+# 	args['bowtie2-build'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2-build'])
+# 	args['bowtie2'] = '/'.join([main_dir, 'bin', platform.system(), 'bowtie2'])
+# 	args['samtools'] = '/'.join([main_dir, 'bin', platform.system(), 'samtools'])
+#
+# 	for arg in ['hs-blastn', 'stream_seqs', 'bowtie2-build', 'bowtie2', 'samtools']:
+# 		if not os.path.isfile(args[arg]):
+# 			sys.exit("\nError: File not found: %s\n" % args[arg])
+#
+# 	for arg in ['hs-blastn', 'bowtie2-build', 'bowtie2', 'samtools']:
+# 		if not os.access(args[arg], os.X_OK):
+# 			sys.exit("\nError: File not executable: %s\n" % args[arg])
+from distutils.spawn import find_executable
+for exe in [...]:
+    if find_executable(exe) is None:
+        sys.exit("\nError: File not found: {}\n".format(exe))
 
 	import subprocess as sp
 
@@ -260,14 +264,14 @@ def read_genes(species_id, db):
 			gene['end'] = int(gene['end'])
 			gene['seq'] = get_gene_seq(gene, genome[gene['scaffold_id']])
 			genes.append(gene)
-	
+
 	# sort genes
 	coords = [[gene['scaffold_id'], gene['start'], -gene['end']] for gene in genes]
 	indexes = sorted(range(len(coords)), key=lambda k: coords[k])
 	sorted_genes = [genes[i] for i in indexes]
-			
+
 	return {'list':sorted_genes, 'index':0}
-	
+
 
 def read_genome(db, species_id):
 	""" Read in representative genome from reference database """
