@@ -12,17 +12,17 @@ from operator import itemgetter
 
 class GenomicSite:
 	def __init__(self, id, values):
-	
+
 		# initialize
 		self.id = str(id) #values[0].rsplit('|', 1)[0]
 		self.ref_id, self.ref_pos, self.ref_allele  = values[0].rsplit('|', 2)
 		self.ref_pos = int(self.ref_pos)
-		
+
 		# per-sample statistics
 		self.sample_counts = [[int(j) for j in i.split(',')] for i in values[1:]] # <list>, per sample allele counts
 		self.sample_mafs = []  # <list>, minor allele frequencies
 		self.sample_depths = [] # <list>, count of major+minor allele frequencies
-		
+
 		# pooled statistics
 		self.total_samples = len(self.sample_counts)
 		self.pooled_counts = self.compute_pooled_counts() # <list>, count of each allele across all samples
@@ -30,7 +30,7 @@ class GenomicSite:
 		self.major_allele = None
 		self.minor_allele = None
 		self.snp_type = None # mono, bi, tri, quad
-					
+
 		# site annotations
 		self.locus_type = None # CDS, tRNA, rRNA, IGR
 		self.site_type = None # 1D, 2D, 3D, 4D
@@ -38,7 +38,7 @@ class GenomicSite:
 		self.amino_acids = None
 		self.ref_codon = None
 		self.codon_pos = None
-		
+
 	def compute_pooled_counts(self):
 		""" Compute count of 4 nucleotides across samples """
 		pooled_counts = []
@@ -48,10 +48,10 @@ class GenomicSite:
 
 	def call_alleles(self, snp_freq):
 		""" Call major and minor alleles at GenomicSite """
-		
+
 		# check at least 1 mapped read
 		if self.pooled_depth == 0: return
-		
+
 		# get sorted counts
 		alleles = list('ACGT')
 		freqs = [float(count)/self.pooled_depth for count in self.pooled_counts]
@@ -61,12 +61,12 @@ class GenomicSite:
 		if allele_freqs[0][1] > 0:
 			self.major_allele = allele_freqs[0][0]
 			self.major_index = alleles.index(self.major_allele)
-		
+
 		# minor allele
 		if allele_freqs[1][1] > 0:
 			self.minor_allele = allele_freqs[1][0]
 			self.minor_index = alleles.index(self.minor_allele)
-		
+
 		# classify SNP
 		snp_types = ['quad', 'tri', 'bi', 'mono']
 		for snp_type, allele_freq in zip(snp_types, allele_freqs[::-1]):
@@ -107,7 +107,7 @@ class GenomicSite:
 		""" Filter genomic site based on MAF and prevalence """
 		if self.prevalence < min_prev:
 			self.flag = (True, 'min_prev')
-		elif ('any' not in snp_types and 
+		elif ('any' not in snp_types and
 				self.snp_type not in snp_types):
 			self.flag = (True, 'snp_type')
 		else:
@@ -172,7 +172,7 @@ class GenomicSite:
 		# gene sequence (oriented start to stop)
 		ref_codon = gene['seq'][gene_pos-codon_pos:gene_pos-codon_pos+3]
 		return ref_codon, codon_pos
-						
+
 	def write(self, files):
 		""" Store data for GenomicSite in Species"""
 		# snps_info
@@ -205,19 +205,19 @@ def parallel(function, argument_list, threads):
 	import multiprocessing as mp
 	import signal
 	import time
-	
+
 	def init_worker():
 		signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 	pool = mp.Pool(threads, init_worker)
-	
+
 	try:
 		results = []
 		for arguments in argument_list:
 			p = pool.apply_async(function, args=arguments)
 			results.append(p)
 		pool.close()
-		
+
 		while True:
 			if all(r.ready() for r in results):
 				for r in results: # catches errors in child process
@@ -301,14 +301,14 @@ def write_merge_midas(species, args, thread=None):
 	for ftype in ['freq', 'depth']:
 		record = ['site_id']+[s.id for s in species.samples]
 		files[ftype].write('\t'.join(record)+'\n')
-	info_fields = ['site_id', 
-				   'ref_id', 
+	info_fields = ['site_id',
+				   'ref_id',
 				   'ref_pos',
-				   'ref_allele', 
-				   'major_allele', 
+				   'ref_allele',
+				   'major_allele',
 				   'minor_allele',
-				   'count_samples', 
-				   'count_a', 
+				   'count_samples',
+				   'count_a',
 				   'count_c',
 				   'count_g',
 				   'count_t',
@@ -326,23 +326,23 @@ def build_sharded_tables(species, args, thread, line_from, line_to):
 	infiles = read_count_matrixes(species, args)
 	outfiles = write_merge_midas(species, args, thread)
 	genes = utility.read_genes(species.id, args['db'])
-	
+
 	line_num = -1
 	while True:
-				
+
 		# fetch allele counts for next site
 		try:
 			lines = [next(file) for file in infiles]
 		except StopIteration:
 			break
-		
+
 		# control which lines are processed
 		line_num += 1
 		if line_num < line_from:
 			continue
 		elif line_num >= line_to:
 			break
-		
+
 		# initialize GenomicSite
 		values = sum([line.rstrip().split()[1:] for line in lines], [lines[0].split()[0]])
 		site_id = line_num+1
@@ -351,14 +351,14 @@ def build_sharded_tables(species, args, thread, line_from, line_to):
 		site.compute_per_sample_mafs()
 		site.compute_prevalence(species.sample_depth, args['site_depth'], args['site_ratio'])
 		site.flag(args['site_prev'], args['snp_type'])
-		
+
 		# decide what to do with site
 		if site.flag[0] is True:
 			continue
 		else:
 			site.annotate(genes)
 			site.write(outfiles)
-	
+
 	# finish up
 	for file in infiles: file.close()
 	for file in outfiles.values(): file.close()
@@ -382,7 +382,7 @@ def parallel_build_sharded_tables(species, args):
 		line_from, line_to = line_range
 		arguments=(species, args, thread, line_from, line_to)
 		argument_list.append(arguments)
-	
+
 	parallel(build_sharded_tables, argument_list, args['threads'])
 
 def merge_sharded_tables(species, args):
@@ -421,7 +421,7 @@ snps_freq.txt
 snps_depth.txt
   number of reads mapped to genomic site per sample
   only accounts for reads matching either major or minor allele
-snps_info.txt  
+snps_info.txt
   metadata for genomic site
   see below for more information
 snps_summary.txt
@@ -459,7 +459,7 @@ snps_info.txt
   count_t: count of T allele in pooled metagenomes
   locus_type: CDS (site in coding gene), RNA (site in non-coding gene), IGR (site in intergenic region)
   gene_id: gene identified if locus_type is CDS, or RNA
-  snp_type: indicates the number of alleles observed at site (mono,bi,tri,quad); observed allele are determined by --snp_maf flag  
+  snp_type: indicates the number of alleles observed at site (mono,bi,tri,quad); observed allele are determined by --snp_maf flag
   site_type: indicates degeneracy: 1D, 2D, 3D, 4D
   amino_acids: amino acids encoded by 4 possible alleles
 
@@ -467,30 +467,30 @@ Additional information for species can be found in the reference database:
  %s/rep_genomes/%s
 """ % (args['db'], sp.id) )
 	outfile.close()
-	
+
 def run_pipeline(args):
-	
+
 	print("Identifying species and samples")
 	species_list = merge.select_species(args, dtype='snps')
 	for species in species_list:
 		print("  %s" % species.id)
-		if 'genome_name' in species.genome_info: 
+		if 'genome_name' in species.genome_info:
 			print("    genome name: %s" % species.genome_info['genome_name'])
 		if 'length' in species.genome_info:
 			print("    genome length: %s" % species.genome_info['length'])
 		if 'contigs' in species.genome_info:
 			print("    count contigs: %s" % max(1, int(species.genome_info['contigs'])))
 		print("    count samples: %s" % len(species.samples))
-	
+
 	print("\nMerging snps")
 	for species in species_list:
-	
+
 		print("  %s" % species.id)
 		species.tempdir = '%s/%s/temp' % (args['outdir'], species.id)
 		if not os.path.isdir(species.tempdir): os.mkdir(species.tempdir)
 		species.sample_lists = utility.batch_samples(species.samples, threads=args['threads'])
 		species.num_splits = len(species.sample_lists)
-		
+
 		print("    merging count data")
 		parallel_build_temp_count_matrixes(species, args)
 
@@ -504,5 +504,3 @@ def run_pipeline(args):
 		write_snps_readme(args, species)
 		species.write_sample_info(dtype='snps', outdir=args['outdir'])
 		shutil.rmtree(species.tempdir)
-
-

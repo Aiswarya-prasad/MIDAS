@@ -297,6 +297,16 @@ def read_genes(species_id, db):
 
 	return {'list':sorted_genes, 'index':0}
 
+def parse_prokka_header(header):
+	"""
+	written by Aiswarya to deal with the fact that prokka makes weird headers
+	an alternative would have been to edit headers in the prokka file but this
+	appears to be a quicker fix
+	"""
+	if "|Prokka|" in header:
+		return(header.split("|")[-1])
+	else:
+		return(header)
 
 def read_genome(db, species_id):
 	""" Read in representative genome from reference database """
