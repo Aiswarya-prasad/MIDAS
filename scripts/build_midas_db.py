@@ -72,9 +72,3 @@ if __name__ == "__main__":
 	check_args(args)
 	utility.print_copyright()
 	build_db.run_pipeline(args)
-
-
-
-
-
-
